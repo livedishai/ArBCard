@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AR Menu – 3D Dish Try-On</title>
+
+  <!-- A-Frame & MindAR -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold: #D4A84B;
+      --dark: #0d0d0d;
+      --glass: rgba(10, 10, 10, 0.65);
+      --radius: 14px;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #000;
+      overflow: hidden;
+    }
+
+    .a-enter-vr-button { display: none !important; }
+
+    /* ── LOGO ── */
+    #logo {
+      position: absolute;
+      top: 12px; left: 12px;
+      width: 90px;
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6));
+    }
+
+    /* ── DISH LABEL ── */
+    #dishLabel {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--glass);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(212,168,75,0.35);
+      border-radius: 50px;
+      padding: 8px 22px;
+      color: var(--gold);
+      font-family: 'Playfair Display', serif;
+      font-size: 16px;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+
+    /* ── DISH CAROUSEL ── */
+    #dishCarousel {
+      position: absolute;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      max-width: calc(100vw - 24px);
+      padding: 10px 14px;
+      background: var(--glass);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(212,168,75,0.2);
+      border-radius: 60px;
+      scrollbar-width: none;
+      z-index: 150;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+    #dishCarousel::-webkit-scrollbar { display: none; }
+
+    .dish-thumb {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: transform 0.2s;
+    }
+    .dish-thumb:hover { transform: scale(1.08); }
+
+    .dish-thumb img {
+      width: 52px;
+      height: 52px;
+      object-fit: cover;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      transition: border-color 0.25s, box-shadow 0.25s;
+    }
+    .dish-thumb.active img {
+      border-color: var(--gold);
+      box-shadow: 0 0 10px rgba(212,168,75,0.55);
+    }
+
+    .dish-thumb span {
+      font-size: 9px;
+      color: #ccc;
+      text-align: center;
+      max-width: 60px;
+      line-height: 1.2;
+      transition: color 0.25s;
+    }
+    .dish-thumb.active span { color: var(--gold); }
+
+    /* ── BOTTOM ACTION BUTTONS ── */
+    #bottomActions {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+
+    /* ── TOP-RIGHT: LOCATION ── */
+    #locationBtn {
+      position: absolute;
+      top: 16px; right: 16px;
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+
+    /* ── SHARED BUTTON STYLE ── */
+    .plan-button {
+      padding: 11px 18px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: 'DM Sans', sans-serif;
+      border: 1px solid rgba(212,168,75,0.4);
+      border-radius: 50px;
+      background: var(--glass);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      color: #fff;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.25s, border-color 0.25s;
+    }
+    .plan-button:hover {
+      background: rgba(212,168,75,0.18);
+      border-color: var(--gold);
+    }
+
+    /* ── WHATSAPP ── */
+    #whatsappBtn {
+      position: fixed;
+      bottom: 100px; right: 18px;
+      background: #25D366;
+      border-radius: 50%;
+      width: 52px; height: 52px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      z-index: 230;
+      box-shadow: 0 4px 14px rgba(37,211,102,0.4);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease, transform 0.2s;
+    }
+    #whatsappBtn:hover { transform: scale(1.08); }
+    #whatsappBtn img { width: 28px; height: 28px; }
+
+    /* ── SCAN HINT (shown before target found) ── */
+    #scanHint {
+      position: absolute;
+      bottom: 50%;
+      left: 50%;
+      transform: translate(-50%, 50%);
+      text-align: center;
+      color: rgba(255,255,255,0.55);
+      font-size: 14px;
+      letter-spacing: 0.06em;
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 0.4s;
+    }
+    #scanHint .icon { font-size: 38px; margin-bottom: 10px; }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+      .dish-thumb img { width: 44px; height: 44px; }
+      .plan-button { padding: 10px 14px; font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Logo -->
+  <img src="logo1.png" id="logo" alt="Logo">
+
+  <!-- Current Dish Label -->
+  <div id="dishLabel">🍱 Agedashi Tofu</div>
+
+  <!-- Scan Hint -->
+  <div id="scanHint">
+    <div class="icon">📷</div>
+    Point camera at the menu card
+  </div>
+
+  <!-- Dish Carousel -->
+  <div id="dishCarousel">
+    <!-- filled by JS -->
+  </div>
+
+  <!-- Bottom Buttons -->
+  <div id="bottomActions">
+    <button class="plan-button" onclick="window.location.href='https://jewels-ai.github.io/Ai_Jewellery_Demo_Ai/'">🌟 Try on Jewellery</button>
+    <button class="plan-button" onclick="window.open('https://jewels-ai.github.io/Ai_savings-plan_Ai/')">💰 Savings Plan</button>
+  </div>
+
+  <!-- Location Top Right -->
+  <button class="plan-button" id="locationBtn" onclick="window.open('https://maps.app.goo.gl/U3cmv1V6CV9e95QB8')">📍 Location</button>
+
+  <!-- WhatsApp -->
+  <div id="whatsappBtn" onclick="window.open('https://wa.me/917019743880','_blank')">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp">
+  </div>
+
+  <!-- AR Scene -->
+  <a-scene
+    mindar-image="imageTargetSrc: ./targets/card.mind; filterMinCF: 0.0001; filterBeta: 0.001"
+    renderer="colorManagement: true; antialias: true; logarithmicDepthBuffer: true"
+    loading-screen="enabled: false"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false">
+
+    <a-assets>
+      <!-- Models are loaded dynamically -->
+    </a-assets>
+
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <a-entity
+      id="target1"
+      mindar-image-target="targetIndex: 0">
+
+      <!-- 3D model entity, src swapped by JS -->
+      <a-entity
+        id="modelEntity"
+        position="0 0 0"
+        rotation="90 45 45"
+        gltf-model=""
+        animation="property: rotation; to:360 90 90;loop:true;dur: 30000;easing: linear">
+         </a-entity>
+
+    </a-entity>
+  </a-scene>
+
+  <script>
+    /* ── DISH DATA ── */
+    const dishes = [
+  { name: "Agedashi Tofu",    folder: "Agedashi-Tofu",    model: "Agedashi-Tofu.glb",    scale: ".8 .8 .8" },
+  { name: "Edamame",          folder: "Edamame",          model: "Edamame.glb",           scale: "10 10 10" },
+  { name: "Gyoza",            folder: "Gyoza",            model: "Gyoza.glb",             scale: "20 20 20" },
+  { name: "Karaage",          folder: "Karaage",          model: "Karaage.glb",           scale: "2 2 2" },
+  { name: "Matcha Ice Cream", folder: "Matcha-Ice-Cream", model: "Matcha-Ice-Cream.glb",  scale: "2 2 2" },
+  { name: "Miso Soup",        folder: "Miso-Soup",        model: "Miso-Soup.glb",         scale: "2 2 2" },
+  { name: "Ramen",            folder: "Ramen",            model: "Ramen.glb",             scale: "2 2 2" },
+  { name: "Salmon Sashimi",   folder: "Salmon-Sashimi",   model: "Salmon-Sashimi.glb",    scale: "2 2 2" },
+  { name: "Takoyaki",         folder: "Takoyaki",         model: "Takoyaki.glb",          scale: "2 2 2" },
+  { name: "Tempura",          folder: "Tempura",          model: "Tempura.glb",           scale: "2 2 2" },
+];
+
+    let currentIndex = 0;
+
+    /* ── DOM refs ── */
+    const modelEntity  = document.querySelector('#modelEntity');
+    const dishLabel    = document.querySelector('#dishLabel');
+    const carousel     = document.querySelector('#dishCarousel');
+    const locationBtn  = document.querySelector('#locationBtn');
+    const bottomActions= document.querySelector('#bottomActions');
+    const whatsappBtn  = document.querySelector('#whatsappBtn');
+    const logo         = document.querySelector('#logo');
+    const scanHint     = document.querySelector('#scanHint');
+    const target       = document.querySelector('#target1');
+
+    const overlayEls = [locationBtn, bottomActions, whatsappBtn, logo, dishLabel, carousel];
+
+    /* ── BUILD CAROUSEL ── */
+    dishes.forEach((dish, i) => {
+      const thumb = document.createElement('div');
+      thumb.className = 'dish-thumb' + (i === 0 ? ' active' : '');
+      thumb.innerHTML = `
+        <img src="3d-model/${dish.folder}/${dish.folder}.png"
+             onerror="this.src='https://via.placeholder.com/52x52/1a1a1a/D4A84B?text=🍱'"
+             alt="${dish.name}">
+        <span>${dish.name}</span>
+      `;
+      thumb.addEventListener('click', () => selectDish(i));
+      carousel.appendChild(thumb);
+    });
+
+    /* ── SELECT DISH ── */
+    function selectDish(index) {
+      currentIndex = index;
+      const dish = dishes[index];
+
+      // Update model
+      const modelPath = `3d-model/${dish.folder}/${dish.model}`;
+      modelEntity.setAttribute('gltf-model', modelPath);
+
+      // Update label
+      dishLabel.textContent = '🍱 ' + dish.name;
+
+      // Update carousel active state
+      document.querySelectorAll('.dish-thumb').forEach((el, i) => {
+        el.classList.toggle('active', i === index);
+      });
+
+      // Scroll thumb into view
+      const thumbs = document.querySelectorAll('.dish-thumb');
+      thumbs[index].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+
+    /* ── INITIALISE FIRST MODEL ── */
+    selectDish(0);
+
+    /* ── AR TARGET EVENTS ── */
+    target.addEventListener('targetFound', () => {
+      overlayEls.forEach(el => {
+        el.style.opacity = '1';
+        el.style.pointerEvents = 'auto';
+      });
+      scanHint.style.opacity = '0';
+    });
+
+    target.addEventListener('targetLost', () => {
+      overlayEls.forEach(el => {
+        el.style.opacity = '0';
+        el.style.pointerEvents = 'none';
+      });
+      scanHint.style.opacity = '1';
+    });
+
+    /* ── PREVENT DEV TOOLS ── */
+    document.addEventListener("contextmenu", e => e.preventDefault());
+    document.addEventListener("keydown", e => {
+      if (
+        e.key === "F12" ||
+        (e.ctrlKey && e.shiftKey && ["I","J","C"].includes(e.key)) ||
+        (e.ctrlKey && e.key === "u")
+      ) {
+        e.preventDefault();
+        alert("🚫 Action Disabled!");
+      }
+    });
+  </script>
+</body>
+</html>
